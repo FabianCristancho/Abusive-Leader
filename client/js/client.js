@@ -25,7 +25,13 @@ var app = new Vue({
             }
         },
         changeLeader: function(){
-            console.log("Voy a cambiar de lider");
+            console.log("I want to Give Up");
+            axios.post('http://'+new URLSearchParams(window.location.search).get('server')+'/giveUp')
+            .then(response=>{})
+            .catch(e => {
+                console.log(e);
+            })
+
             //     axios.post('http://'+new URLSearchParams(window.location.search).get('server')+'/changeTime', null, {params: {hour: this.newHour, minute:this.newMinute, seconds: this.newSeconds}})
             // .then(response => {
             //     this.rowData.push(response.data);
