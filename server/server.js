@@ -5,20 +5,36 @@ const axios = require('axios');
 const cors = require('cors');
 const { response } = require('express');
 const port = process.argv[2];
+const gateway = process.argv[3];
 var http = require('http').createServer(app);
 var io = require('socket.io')(http);
+var node = require('socket.io-client');
 var myId = 0;
-var leader = 'http://localhost:3000';
+var leader = '';
 var imLeader = false;
-
+var socketClient = node.connect('http://'+gateway); 
 const interfaces = require('os').networkInterfaces();
 
+
+socketClient.on('connect', () => {
+     console.log('Successfully connected!');
+});
+
+socketClient.on('sendLeader', function(data){
+     console.log('Gateway send me that leader is: ' +data);
+     if(data == myIP+':'+port){
+          console.log('I am leader');
+          imLeader = true;
+     }else{
+          leader = data;
+     }
+});
 
 const myIP = getIpserver();
 console.log('is:::' +myIP);
 
 
-const randomBeat = Math.round(Math.random()*(5000-1000)+1000);
+const randomBeat = Math.round(Math.random()*(5000-3000)+3000);
 
 var servers = new Map();
 servers.set(1, 'http://localhost:3001');
@@ -34,10 +50,7 @@ io.of('clients').on('connection', (socket) => {
      socket.emit('your_id');
      socket.on('is_my_id', (message) => {
           myId = message;
-          if(myId==3){
-               imLeader = true;
-               console.log("I AM LEADER");
-          }
+          socketClient.emit('serverData', {id: myId, ipServer:myIP+':'+port});
           console.log(`Now my server id is ${myId}`);
      });
 });
@@ -45,7 +58,8 @@ io.of('clients').on('connection', (socket) => {
 function doBeatToLeader(){
      if(!imLeader){
           console.log('Beat to leader');
-          axios.get(leader+'/isAlive')
+          console.log('Leader: ' +leader);
+          axios.get('http://'+leader+'/isAlive')
           .then(response => {
                console.log("Leader response: " +response.data);
           })
@@ -81,7 +95,11 @@ function getIpserver(){
 }
 
 setInterval(()=>{
-     doBeatToLeader();
+     if(leader){
+          doBeatToLeader();
+     }else{
+          console.log('Wait to leader');
+     }
 }, randomBeat);
 
 app.get('/', (req, res) => res.send('Hello World!'));
