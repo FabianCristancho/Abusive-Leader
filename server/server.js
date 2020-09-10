@@ -77,7 +77,7 @@ function getIpserver(){
      .reduce((results, name) => results.concat(interfaces[name]), [])
      .filter((iface) => iface.family === 'IPv4' && !iface.internal)
      .map((iface) => iface.address);
-     return ipServer[1];
+     return ipServer[ipServer.length-1];
 }
 
 setInterval(()=>{
