@@ -13,8 +13,8 @@ app.use(cors());
 
 function setNewServer(server){
      if(connectedServers.size==0){
-          leader = server.ipServer;
-          console.log('Leader is ' +leader);
+          leader = server;
+          console.log('Leader is ' +leader.ipServer);
      }
      connectedServers.set(server.id, server.ipServer);
      console.log('Cant servers: ' +connectedServers.size);
@@ -25,7 +25,7 @@ io.on('connection', function(socket) {
      socket.on('serverData', function(data){
           console.log(data);
           setNewServer(data);
-          socket.emit('sendLeader', leader);
+          io.emit('sendLeader', leader);
      });
 
 });

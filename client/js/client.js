@@ -4,7 +4,7 @@ var app = new Vue({
       urlParams : new URLSearchParams(window.location.search),
       myId: new URLSearchParams(window.location.search).get('id'),
       socket: io('http://'+new URLSearchParams(window.location.search).get('server')+'/clients'),
-      liderId: 3,
+      liderId: '',
       rowData: []
     },
     created: function () {
@@ -13,11 +13,15 @@ var app = new Vue({
     methods: {
         connect: function(){
             let vue = this;
-            console.log("aqui entra");
             this.socket.on('your_id', function(msg){
+                vue.myId = msg;
                 console.log("Me pide id");
-                vue.socket.emit('is_my_id', vue.myId);
+                // vue.socket.emit('is_my_id', vue.myId);
             });
+            this.socket.on('leader_id', function(idLeader){
+                vue.liderId = idLeader;
+                console.log('id lider: ' +idLeader);
+            })
         },
         filterKey: function(e){
             if((e.keyCode < 48 && (e.keyCode != 8 && e.keyCode != 9))|| e.keyCode > 57) {

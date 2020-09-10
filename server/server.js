@@ -5,12 +5,13 @@ const axios = require('axios');
 const cors = require('cors');
 const { response } = require('express');
 const port = process.argv[2];
-const gateway = process.argv[3];
+var myId = process.argv[3];
+const gateway = process.argv[4];
 var http = require('http').createServer(app);
 var io = require('socket.io')(http);
 var node = require('socket.io-client');
-var myId = 0;
 var leader = '';
+var leaderId = '';
 var imLeader = false;
 var socketClient = node.connect('http://'+gateway); 
 const interfaces = require('os').networkInterfaces();
@@ -18,16 +19,20 @@ const interfaces = require('os').networkInterfaces();
 
 socketClient.on('connect', () => {
      console.log('Successfully connected!');
+     socketClient.emit('serverData', {id: myId, ipServer:myIP+':'+port});
 });
 
 socketClient.on('sendLeader', function(data){
      console.log('Gateway send me that leader is: ' +data);
-     if(data == myIP+':'+port){
+     console.log('LLEGA: ' +data.ipServer)
+     if(data.ipServer == myIP+':'+port){
           console.log('I am leader');
           imLeader = true;
      }else{
-          leader = data;
+          imLeader = false;
      }
+     leaderId = data.id;
+     leader = data.ipServer;
 });
 
 const myIP = getIpserver();
@@ -47,33 +52,29 @@ app.use(bodyParser.json());
 
 io.of('clients').on('connection', (socket) => {
      console.log('New client connected!');
-     socket.emit('your_id');
-     socket.on('is_my_id', (message) => {
-          myId = message;
-          socketClient.emit('serverData', {id: myId, ipServer:myIP+':'+port});
-          console.log(`Now my server id is ${myId}`);
-     });
+     socket.emit('your_id', myId);
+          socket.emit('leader_id', leaderId);
+          console.log('ENTRAAA');
+    
 });
 
 function doBeatToLeader(){
-     if(!imLeader){
-          console.log('Beat to leader');
-          console.log('Leader: ' +leader);
-          axios.get('http://'+leader+'/isAlive')
-          .then(response => {
-               console.log("Leader response: " +response.data);
-          })
-          .catch(e => {
-               console.log(e);
-          });
-     }
+     console.log('Beat to leader: ' +leader);
+     axios.get('http://'+leader+'/isAlive')
+     .then(response => {
+          console.log("Leader response: " +response.data);
+     })
+     .catch(e => {
+          console.log('Leader is dead');
+          leaderId = '';
+          leader = '';
+     });
 }
 
 app.get('/isAlive', (req, res)=>{
-     console.log('Entra a esta vivo');
      if(imLeader){
           res.send('ok');
-          console.log('Im the leader');
+          console.log('Im the leader, i am alive');
      }
      else{
           res.send('no');
@@ -95,11 +96,16 @@ function getIpserver(){
 }
 
 setInterval(()=>{
-     if(leader){
-          doBeatToLeader();
+     if(imLeader){
+          console.log('Currently i am leader');
      }else{
-          console.log('Wait to leader');
+          if(leader){
+               doBeatToLeader();
+          }else{
+               console.log('Wait to leader');
+          }
      }
+     
 }, randomBeat);
 
 app.get('/', (req, res) => res.send('Hello World!'));
