@@ -33,6 +33,9 @@
                                    <div v-else-if="!liderId">
                                         <h5 class="text-light">Actualmente no hay lider asignado</h5>
                                    </div>
+                                   <div v-else-if="liderId == -1">
+                                        <h5 class="text-light">Acabo de renunciar, ya no hago parte del algoritmo</h5>
+                                   </div>
                                    <div v-else class="mt-2">
                                         <h5 class="text-light">El lider es el nodo con id {{ liderId }}</h5>
                                    </div>

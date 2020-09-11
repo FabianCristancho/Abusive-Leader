@@ -27,9 +27,14 @@ io.on('connection', function(socket) {
           setNewServer(data);
           io.emit('sendLeader', leader);
      });
-
 });
 
+app.get('/sendMeServers', (req, res) => {
+     console.log('Me llega: ' +req.query.deadLeader);
+     connectedServers.delete(req.query.deadLeader);
+     console.log(connectedServers);
+     res.json(Object.fromEntries(connectedServers));
+});
 
 
 http.listen(port, () => {

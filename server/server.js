@@ -13,6 +13,7 @@ var node = require('socket.io-client');
 var leader = '';
 var leaderId = '';
 var imLeader = false;
+var confirmed = false;
 var socketClient = node.connect('http://'+gateway); 
 const interfaces = require('os').networkInterfaces();
 
@@ -33,6 +34,7 @@ socketClient.on('sendLeader', function(data){
      }
      leaderId = data.id;
      leader = data.ipServer;
+     io.emit('leader_id', leaderId);
 });
 
 const myIP = getIpserver();
@@ -62,7 +64,15 @@ function doBeatToLeader(){
      console.log('Beat to leader: ' +leader);
      axios.get('http://'+leader+'/isAlive')
      .then(response => {
-          console.log("Leader response: " +response.data);
+          console.log("Leader response: " +response.data.res);
+          if(response.data.res == 'dead'){
+               if(!response.data.status){
+                    console.log('i do the selection');
+                    soliciteServers();
+               }else{
+                    leader = '';
+               }
+          }
      })
      .catch(e => {
           console.log('Leader is dead');
@@ -73,11 +83,12 @@ function doBeatToLeader(){
 
 app.get('/isAlive', (req, res)=>{
      if(imLeader){
-          res.send('ok');
+          res.json({res:'ok', status:true});
           console.log('Im the leader, i am alive');
      }
      else{
-          res.send('no');
+          res.json({res:'dead', status:confirmed});
+          confirmed = true;
           console.log('Im not the leader');
      }
 });
@@ -85,7 +96,27 @@ app.get('/isAlive', (req, res)=>{
 app.post('/giveUp', (req, res)=>{
      console.log('I wish to give Up');
      imLeader = false;
+     leader = '';
+     leaderId = '';
+     // io.of('clients').emit('leader_id', leaderId);
+     console.log('YA NO HAY LIDER');
+     io.emit('leader_id', leaderId);
 });
+
+function soliciteServers(){
+     axios.get('http://'+gateway+'/sendMeServers', {
+          params: {
+            deadLeader: leaderId
+          }
+        })
+     .then(response => {
+          console.log(response.data);
+          selectLeader(response.data);
+     })
+     .catch(e => {
+          console.log(e);
+     });
+}
 
 function getIpserver(){
      const ipServer = Object.keys(interfaces)
@@ -94,6 +125,41 @@ function getIpserver(){
      .map((iface) => iface.address);
      return ipServer[ipServer.length-1];
 }
+
+function selectLeader(servers){
+     var maxId = -1;
+     var newLeader = '';
+     for (var idServer in servers){
+          if(idServer>maxId){
+               maxId = idServer;
+               newLeader = servers[idServer];
+          }
+            console.log("La idServer es " + idServer+ " y el valor es " + servers[idServer]);
+     }
+     console.log("El server con mayor id es el: " +maxId);
+     sendNewLeader(servers, maxId, newLeader);
+}
+
+function sendNewLeader(servers, maxId, newLeader){
+     for (var idServer in servers){
+          axios.get('http://'+servers[idServer]+'/newLeader', {params:{
+               leaderId: maxId,
+               leaderIp: newLeader
+          }})
+          .then(response => {
+               
+          })
+          .catch(e => {
+               console.log(e);
+          });
+     }
+}
+
+app.get('/newLeader', (req, res)=>{
+     console.log('Ahora el nuevo lider tiene id: ' +req.query.leaderId +' y su ip es: ' +req.query.leaderIp);
+     // leaderId = req.query.leaderId;
+     // leader = req.query.leaderIp;
+});
 
 setInterval(()=>{
      if(imLeader){

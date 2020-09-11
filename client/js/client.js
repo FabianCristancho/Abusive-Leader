@@ -30,6 +30,7 @@ var app = new Vue({
         },
         changeLeader: function(){
             console.log("I want to Give Up");
+            this.liderId = -1;
             axios.post('http://'+new URLSearchParams(window.location.search).get('server')+'/giveUp')
             .then(response=>{})
             .catch(e => {
