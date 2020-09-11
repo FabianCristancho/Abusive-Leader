@@ -43,11 +43,6 @@ console.log('is:::' +myIP);
 
 const randomBeat = Math.round(Math.random()*(5000-3000)+3000);
 
-var servers = new Map();
-servers.set(1, 'http://localhost:3001');
-servers.set(2, 'http://localhost:3002');
-servers.set(3, 'http://localhost:3003');
-
 app.use(cors());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
@@ -66,10 +61,11 @@ function doBeatToLeader(){
      .then(response => {
           console.log("Leader response: " +response.data.res);
           if(response.data.res == 'dead'){
-               if(!response.data.status){
+               if(response.data.status == 0){
                     console.log('i do the selection');
                     soliciteServers();
                }else{
+                    leaderId = '';
                     leader = '';
                }
           }
@@ -87,8 +83,12 @@ app.get('/isAlive', (req, res)=>{
           console.log('Im the leader, i am alive');
      }
      else{
-          res.json({res:'dead', status:confirmed});
-          confirmed = true;
+          if(!confirmed){
+               res.json({res:'dead', status:0});
+               confirmed = true;
+          }else{
+               res.json({res:'dead', status:1});
+          }
           console.log('Im not the leader');
      }
 });
@@ -104,6 +104,7 @@ app.post('/giveUp', (req, res)=>{
 });
 
 function soliciteServers(){
+     console.log('###################ESTA ENTRANDO######################');
      axios.get('http://'+gateway+'/sendMeServers', {
           params: {
             deadLeader: leaderId
@@ -157,8 +158,15 @@ function sendNewLeader(servers, maxId, newLeader){
 
 app.get('/newLeader', (req, res)=>{
      console.log('Ahora el nuevo lider tiene id: ' +req.query.leaderId +' y su ip es: ' +req.query.leaderIp);
-     // leaderId = req.query.leaderId;
-     // leader = req.query.leaderIp;
+     leaderId = req.query.leaderId;
+     leader = req.query.leaderIp;
+     if(myId == leaderId){
+          console.log('¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿SOY LIDER??????????????????????????????????');
+          imLeader = true;
+          confirmed = false;
+     }else{
+          imLeader = false;
+     }
 });
 
 setInterval(()=>{
@@ -168,7 +176,11 @@ setInterval(()=>{
           if(leader){
                doBeatToLeader();
           }else{
-               console.log('Wait to leader');
+               if(confirmed){
+                    console.log('I am down');
+               }else{
+                    console.log('Wait to leader');
+               }
           }
      }
      
