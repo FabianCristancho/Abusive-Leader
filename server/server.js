@@ -154,6 +154,15 @@ function sendNewLeader(servers, maxId, newLeader){
                console.log(e);
           });
      }
+     axios.get('http://'+gateway+'/newLeader', {params:{
+               id: maxId,
+               ipServer: newLeader
+     }})
+     .then(response => {               
+     })
+     .catch(e => {
+          console.log(e);
+     });
 }
 
 app.get('/newLeader', (req, res)=>{

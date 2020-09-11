@@ -25,7 +25,7 @@ io.on('connection', function(socket) {
      socket.on('serverData', function(data){
           console.log(data);
           setNewServer(data);
-          io.emit('sendLeader', leader);
+          socket.emit('sendLeader', leader);
      });
 });
 
@@ -36,6 +36,9 @@ app.get('/sendMeServers', (req, res) => {
      res.json(Object.fromEntries(connectedServers));
 });
 
+app.get('/newLeader', (req, res)=>{
+     leader = req.query;
+});
 
 http.listen(port, () => {
      console.log(`Server listening on port ${port}`);
