@@ -18,10 +18,14 @@ var app = new Vue({
                 console.log("Me pide id");
                 // vue.socket.emit('is_my_id', vue.myId);
             });
+            this.socket.on('info', function(message){
+                console.log(message);
+                vue.rowData.push(message);
+            });
             this.socket.on('leader_id', function(idLeader){
                 vue.liderId = idLeader;
                 console.log('id lider: ' +idLeader);
-            })
+            });
         },
         filterKey: function(e){
             if((e.keyCode < 48 && (e.keyCode != 8 && e.keyCode != 9))|| e.keyCode > 57) {

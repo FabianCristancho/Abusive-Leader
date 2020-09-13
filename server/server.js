@@ -16,7 +16,7 @@ var imLeader = false;
 var confirmed = false;
 var socketClient = node.connect('http://'+gateway); 
 const interfaces = require('os').networkInterfaces();
-
+var deadLeaderID = '';
 
 socketClient.on('connect', () => {
      console.log('Successfully connected!');
@@ -34,6 +34,7 @@ socketClient.on('sendLeader', function(data){
      }
      leaderId = data.id;
      leader = data.ipServer;
+     //io.emit('info', leaderId);
      io.emit('leader_id', leaderId);
 });
 
@@ -50,9 +51,9 @@ app.use(bodyParser.json());
 io.of('clients').on('connection', (socket) => {
      console.log('New client connected!');
      socket.emit('your_id', myId);
-          socket.emit('leader_id', leaderId);
-          console.log('ENTRAAA');
-    
+     socket.emit('leader_id', leaderId);
+     socket.emit('info',{time:new Date().toLocaleString(), leader:leaderId, informant:'-', giveup:'-'});     
+     console.log('ENTRAAA');
 });
 
 function doBeatToLeader(){
@@ -63,6 +64,7 @@ function doBeatToLeader(){
           if(response.data.res == 'dead'){
                if(response.data.status == 0){
                     console.log('i do the selection');
+                    deadLeaderID = leaderId;
                     soliciteServers();
                }else{
                     leaderId = '';
@@ -145,7 +147,9 @@ function sendNewLeader(servers, maxId, newLeader){
      for (var idServer in servers){
           axios.get('http://'+servers[idServer]+'/newLeader', {params:{
                leaderId: maxId,
-               leaderIp: newLeader
+               leaderIp: newLeader,
+               deadLeader: deadLeaderID,
+               informer: myId
           }})
           .then(response => {
                
@@ -176,6 +180,11 @@ app.get('/newLeader', (req, res)=>{
      }else{
           imLeader = false;
      }
+     /*io.of('clients').emit('info', new Date().toLocaleString()+' Renuncia lider: '+req.query.deadLeader);
+     io.of('clients').emit('info', new Date().toLocaleString()+' Renuncia lider: '+req.query.deadLeader);
+     io.of('clients').emit('info', new Date().toLocaleString()+' Nuevo lider: '+leaderId);*/
+     io.of('clients').emit('leader_id', leaderId);
+     io.of('clients').emit('info',{time:new Date().toLocaleString(), leader:leaderId, informant:req.query.informer, giveup:req.query.deadLeader});   
 });
 
 setInterval(()=>{

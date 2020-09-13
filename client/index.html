@@ -49,12 +49,19 @@
                               <table class="table table-secondary table-striped table-bordered">
                                    <thead class="bg-dark text-light">
                                      <tr>
-                                       <th scope="col" class="text-center">LOGS</th>
+                                       <th scope="col" class="text-center">Tiempo</th>
+                                       <th scope="col" class="text-center">Lider</th>
+                                       <th scope="col" class="text-center">Informa</th>
+                                       <th scope="col" class="text-center">Renuncia</th>
                                      </tr>
                                    </thead>
                                    <tbody class="text-center">
                                         <tr v-for="item in rowData">
-                                             <td>{{ item }}</td>
+                                             <!--fix-->
+                                             <td>{{item.time}}</td>
+                                             <td>{{item.leader}}</td>
+                                             <td>{{item.informant}}</td>
+                                             <td>{{item.giveup}}</td>
                                         </tr>                           
                                    </tbody>
                               </table>
