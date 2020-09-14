@@ -1,83 +1,55 @@
 const express = require('express');
-const app = express();
 const bodyParser = require('body-parser');
 const axios = require('axios');
 const cors = require('cors');
-const { response } = require('express');
-const port = process.argv[2];
-var myId = process.argv[3];
-const gateway = process.argv[4];
+const interfaces = require('os').networkInterfaces();
+const app = express();
 var http = require('http').createServer(app);
 var io = require('socket.io')(http);
 var node = require('socket.io-client');
-var leader = '';
-var leaderId = '';
-var imLeader = false;
-var confirmed = false;
+const port = process.argv[2];
+var myId = process.argv[3];
+const gateway = process.argv[4];
+var leader, leaderId, deadLeaderID = '';
+var imLeader, confirmed = false;
 var socketClient = node.connect('http://'+gateway); 
-const interfaces = require('os').networkInterfaces();
-var deadLeaderID = '';
+const myIP = getIpserver();
+const randomBeat = Math.round(Math.random()*(5000-3000)+3000);
 
+//Settings
+app.use(cors());
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
+
+//Server connections
 socketClient.on('connect', () => {
      console.log('Successfully connected!');
      socketClient.emit('serverData', {id: myId, ipServer:myIP+':'+port});
 });
 
 socketClient.on('sendLeader', function(data){
-     console.log('Gateway send me that leader is: ' +data);
-     console.log('LLEGA: ' +data.ipServer)
+     console.log('Gateway send me that leader is: ' +data.ipServer);
      if(data.ipServer == myIP+':'+port){
-          console.log('I am leader');
+          console.log('I am the leader');
           imLeader = true;
      }else{
           imLeader = false;
      }
      leaderId = data.id;
      leader = data.ipServer;
-     //io.emit('info', leaderId);
      io.emit('leader_id', leaderId);
 });
 
-const myIP = getIpserver();
-console.log('is:::' +myIP);
-
-
-const randomBeat = Math.round(Math.random()*(5000-3000)+3000);
-
-app.use(cors());
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
-
+//Client connections
 io.of('clients').on('connection', (socket) => {
      console.log('New client connected!');
      socket.emit('your_id', myId);
      socket.emit('leader_id', leaderId);
      socket.emit('info',{time:new Date().toLocaleString(), leader:leaderId, informant:'-', giveup:'-'});     
-     console.log('ENTRAAA');
 });
 
-function doBeatToLeader(){
-     console.log('Beat to leader: ' +leader);
-     axios.get('http://'+leader+'/isAlive')
-     .then(response => {
-          console.log("Leader response: " +response.data.res);
-          if(response.data.res == 'dead'){
-               if(response.data.status == 0){
-                    console.log('i do the selection');
-                    deadLeaderID = leaderId;
-                    soliciteServers();
-               }else{
-                    leaderId = '';
-                    leader = '';
-               }
-          }
-     })
-     .catch(e => {
-          console.log('Leader is dead');
-          leaderId = '';
-          leader = '';
-     });
-}
+//Services
+app.get('/', (req, res) => res.send('Hello World!'));
 
 app.get('/isAlive', (req, res)=>{
      if(imLeader){
@@ -100,33 +72,54 @@ app.post('/giveUp', (req, res)=>{
      imLeader = false;
      leader = '';
      leaderId = '';
-     // io.of('clients').emit('leader_id', leaderId);
-     console.log('YA NO HAY LIDER');
-     io.emit('leader_id', leaderId);
 });
 
-function soliciteServers(){
-     console.log('###################ESTA ENTRANDO######################');
-     axios.get('http://'+gateway+'/sendMeServers', {
-          params: {
-            deadLeader: leaderId
+app.get('/newLeader', (req, res)=>{
+     leaderId = req.query.leaderId;
+     leader = req.query.leaderIp;
+     if(myId == leaderId){
+          console.log('¡I AM LEADER!');
+          imLeader = true;
+          confirmed = false;
+     }else{
+          imLeader = false;
+     }
+     io.of('clients').emit('leader_id', leaderId);
+     io.of('clients').emit('info',{time:new Date().toLocaleString(), leader:leaderId, informant:req.query.informer, giveup:req.query.deadLeader});   
+});
+
+// Functions
+function doBeatToLeader(){
+     console.log('Beat to leader: ' +leader);
+     axios.get('http://'+leader+'/isAlive')
+     .then(response => {
+          console.log("Leader response: " +response.data.res);
+          if(response.data.res == 'dead'){
+               if(response.data.status == 0){
+                    console.log('¡I do the selection!');
+                    deadLeaderID = leaderId;
+                    soliciteServers();
+               }else{
+                    leaderId, leader = '';
+               }
           }
-        })
+     })
+     .catch(e => {
+          console.log('Leader is dead');
+          leaderId, leader = '';
+     });
+}
+
+function soliciteServers(){
+     console.log('I solicite servers to gateway ');
+     axios.get('http://'+gateway+'/sendMeServers', {
+          params: {deadLeader: leaderId}
+     })
      .then(response => {
           console.log(response.data);
           selectLeader(response.data);
      })
-     .catch(e => {
-          console.log(e);
-     });
-}
-
-function getIpserver(){
-     const ipServer = Object.keys(interfaces)
-     .reduce((results, name) => results.concat(interfaces[name]), [])
-     .filter((iface) => iface.family === 'IPv4' && !iface.internal)
-     .map((iface) => iface.address);
-     return ipServer[ipServer.length-1];
+     .catch(e => {});
 }
 
 function selectLeader(servers){
@@ -137,9 +130,8 @@ function selectLeader(servers){
                maxId = idServer;
                newLeader = servers[idServer];
           }
-            console.log("La idServer es " + idServer+ " y el valor es " + servers[idServer]);
      }
-     console.log("El server con mayor id es el: " +maxId);
+     console.log("Server with with max id is: " +maxId);
      sendNewLeader(servers, maxId, newLeader);
 }
 
@@ -151,41 +143,22 @@ function sendNewLeader(servers, maxId, newLeader){
                deadLeader: deadLeaderID,
                informer: myId
           }})
-          .then(response => {
-               
-          })
-          .catch(e => {
-               console.log(e);
-          });
+          .catch(e => {});;
      }
      axios.get('http://'+gateway+'/newLeader', {params:{
                id: maxId,
                ipServer: newLeader
      }})
-     .then(response => {               
-     })
-     .catch(e => {
-          console.log(e);
-     });
+     .catch(e => {});;
 }
 
-app.get('/newLeader', (req, res)=>{
-     console.log('Ahora el nuevo lider tiene id: ' +req.query.leaderId +' y su ip es: ' +req.query.leaderIp);
-     leaderId = req.query.leaderId;
-     leader = req.query.leaderIp;
-     if(myId == leaderId){
-          console.log('¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿SOY LIDER??????????????????????????????????');
-          imLeader = true;
-          confirmed = false;
-     }else{
-          imLeader = false;
-     }
-     /*io.of('clients').emit('info', new Date().toLocaleString()+' Renuncia lider: '+req.query.deadLeader);
-     io.of('clients').emit('info', new Date().toLocaleString()+' Renuncia lider: '+req.query.deadLeader);
-     io.of('clients').emit('info', new Date().toLocaleString()+' Nuevo lider: '+leaderId);*/
-     io.of('clients').emit('leader_id', leaderId);
-     io.of('clients').emit('info',{time:new Date().toLocaleString(), leader:leaderId, informant:req.query.informer, giveup:req.query.deadLeader});   
-});
+function getIpserver(){
+     const ipServer = Object.keys(interfaces)
+     .reduce((results, name) => results.concat(interfaces[name]), [])
+     .filter((iface) => iface.family === 'IPv4' && !iface.internal)
+     .map((iface) => iface.address);
+     return ipServer[ipServer.length-1];
+}
 
 setInterval(()=>{
      if(imLeader){
@@ -201,11 +174,9 @@ setInterval(()=>{
                }
           }
      }
-     
 }, randomBeat);
 
-app.get('/', (req, res) => res.send('Hello World!'));
 http.listen(port, () => {
-     console.log(`Example app listening on port ${port}!`);
-     console.log('do beat: ' +randomBeat +" milliseconds");
+     console.log(`Server listening on port ${port}!`);
+     console.log('Do beat: ' +randomBeat +" milliseconds");
 });

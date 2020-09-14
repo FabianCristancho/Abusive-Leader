@@ -1,25 +1,16 @@
 const express = require('express');
 const app = express();
-const port = process.argv[2];
-
 var http = require('http').createServer(app);
 var io = require('socket.io')(http);
 var cors = require('cors');
-
 var connectedServers = new Map();
+const port = process.argv[2];
 var leader = '';
 
+//Settings
 app.use(cors());
 
-function setNewServer(server){
-     if(connectedServers.size==0){
-          leader = server;
-          console.log('Leader is ' +leader.ipServer);
-     }
-     connectedServers.set(server.id, server.ipServer);
-     console.log('Cant servers: ' +connectedServers.size);
-}
-
+//Connections
 io.on('connection', function(socket) {
      console.log('A new client connected ');
      socket.on('serverData', function(data){
@@ -29,8 +20,9 @@ io.on('connection', function(socket) {
      });
 });
 
+//Services
 app.get('/sendMeServers', (req, res) => {
-     console.log('Me llega: ' +req.query.deadLeader);
+     console.log('Leader that give up: ' +req.query.deadLeader);
      connectedServers.delete(req.query.deadLeader);
      console.log(connectedServers);
      res.json(Object.fromEntries(connectedServers));
@@ -39,6 +31,16 @@ app.get('/sendMeServers', (req, res) => {
 app.get('/newLeader', (req, res)=>{
      leader = req.query;
 });
+
+//Functions
+function setNewServer(server){
+     if(connectedServers.size==0){
+          leader = server;
+          console.log('Leader is ' +leader.ipServer);
+     }
+     connectedServers.set(server.id, server.ipServer);
+     console.log('Cant servers: ' +connectedServers.size);
+}
 
 http.listen(port, () => {
      console.log(`Server listening on port ${port}`);
